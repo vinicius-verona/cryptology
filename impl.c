@@ -97,7 +97,7 @@ void get_string_hex(uint8_t* h, char* hash_string, int size) {
     }
 }
 
-int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key) {
+int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key, int size) {
     HASH_TABLE_CELL* aux;
 
     if (hash_table[key].list == NULL) return 0;
@@ -105,7 +105,7 @@ int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key) {
     aux = hash_table[key].list->fst_cell;
 
     // While the end of the list is not reached or the element is not found, change aux to the next element
-    while (aux != NULL && (cmp_hashes(aux->item->hash, h, 6) != 0 || cmp_hashes(aux->item->message, m, BLEN) == 0)) {
+    while (aux != NULL && (cmp_hashes(aux->item->hash, h, 6) != 0 || (size == BLEN && cmp_hashes(aux->item->message, m, BLEN) == 0))) {
         aux = aux->next;
     }
 
@@ -114,7 +114,7 @@ int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key) {
         #ifdef VERBOSE
 
             char message_string1[2*BLEN]; get_string_hex(aux->item->message, message_string1, BLEN);
-            char message_string2[2*BLEN]; get_string_hex(m, message_string2, BLEN);
+            char message_string2[2*size]; get_string_hex(m, message_string2, size);
 
             printf("-: %s %s %lf\n", message_string1, message_string2, log2(SAMPLES));
 
@@ -157,7 +157,7 @@ uint64_t get_hash_key(uint8_t* hash) {
 }
 
 int add_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, long int key) {
-    if (lookup_hash(hash_table, h, m, key) != 1) {
+    if (lookup_hash(hash_table, h, m, key, BLEN) != 1) {
         add_to_hash_list(hash_table, h, m, key);
         return 1;
     } else {
@@ -222,7 +222,6 @@ void print(const uint8_t* x, const size_t len, const char* s) {
     printf("%s", s);
 }
 
-
 void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
     // Hash table used to store all hashes generated and its messages
     HASH_TABLE* hash_table = create_hash_table(HT_SIZE);
@@ -249,7 +248,7 @@ void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
         #endif
 
         if (hash_table[hidx].list != NULL) {
-            long int idx = lookup_hash(hash_table, h2, m2, hidx);
+            long int idx = lookup_hash(hash_table, h2, m2, hidx, BLEN);
 
             if (idx) {
                 // Collision found, copy hash to h and return
@@ -324,7 +323,63 @@ double multicollision(int t) {
 }
 
 double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const size_t len) {
-    // TODO: Implement this function
+    if (len % BLEN != 0) {
+        printf("Error: len must be a multiple of BLEN\n");
+        return 0;
+    }
+    
+    // Hash table used to store all hashes generated and its messages
+    HASH_TABLE* hash_table = create_hash_table(HT_SIZE);
+    uint8_t null_hash[6] = {0};
+
+    int count = 0;
+
+    while (1) {
+        count++;
+        SAMPLES++;
+        uint8_t h1[6], h2[6];
+
+        // Generate a random message and compute its hash
+        random_message(m1, BLEN);
+        iterated_tcz48_dm(m1, BLEN, h1);
+        random_message(m2, len);
+        iterated_tcz48_dm(m2, len, h2);
+
+        // Check if the hash is already in the hash table
+        uint64_t hidx1 = get_hash_key(h1);
+        uint64_t hidx2 = get_hash_key(h2);
+
+        #ifdef DEBUG
+            if ((count - 1) % 1000000 == 0) {
+                printf("Count: %d\n", (count - 1) / 1000000);
+            }
+        #endif
+
+        add_hash(hash_table, h1, m1, hidx1);
+
+        if (hash_table[hidx2].list != NULL) {
+            long int idx = lookup_hash(hash_table, h2, m2, hidx2, len);
+
+            if (idx) {
+                // Collision found, copy hash to h and return
+                copy_hash(h, h2, 6);
+                copy_msg(m1, get_message(hash_table, hidx2, h2), BLEN);
+                break;
+            }
+
+        }
+    }
+
+    #ifdef DEBUG_MESSAGE
+        // Print the pair of messages in uint8_t format
+        printf("m1: ");
+        print_uint8(m1, BLEN, " || ");
+        printf("m2: ");
+        print_uint8(m2, len, "\n");
+    #endif
+
+    // Free hash_table memory
+    free_hash_table(hash_table, HT_SIZE);
 }
 
 double expandable_message(int t) {
