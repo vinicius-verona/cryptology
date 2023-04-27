@@ -403,6 +403,55 @@ double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const siz
     return log2(SAMPLES);
 }
 
+
+// Geting stuc for some reason
 double expandable_message(int t) {
-    // TODO: implement
+    uint8_t h[6], h1[6], h2[6], m[BLEN], *m2;
+    double result;
+
+    m2   = (uint8_t*) malloc((pow(2,t)+1) * BLEN * sizeof(uint8_t));
+    SAMPLES = 0;
+
+    h[0]  = IVB0; h[1]  = IVB1; h[2]  = IVB2; h[3]  = IVB3; h[4]  = IVB4; h[5]  = IVB5;
+    h1[0] = IVB0; h1[1] = IVB1; h1[2] = IVB2; h1[3] = IVB3; h1[4] = IVB4; h1[5] = IVB5;
+    h2[0] = IVB0; h2[1] = IVB1; h2[2] = IVB2; h2[3] = IVB3; h2[4] = IVB4; h2[5] = IVB5;
+
+    // look for 1-block message collision
+    unbalanced_collision(h, m, m2, 1);
+    print(m, BLEN, " - ");
+    print(h, 6, "\n");
+    print(m2, BLEN, " - ");
+    print(h, 6, "\n");
+
+    
+    ucollision(h,m2,2);
+
+    // for (int i = 2; i <= pow(2,t)+1; i++) {
+        // ucollision(h,m2,i);
+
+        // int counter = 0;
+        // while(1) {
+        //     SAMPLES++;
+        //     counter++;
+        //     copy_hash(h2, h1, 6);
+
+        //     if(counter % 1000000 == 0) {
+        //         printf("counter: %d\n", counter / 1000000);
+        //     }
+
+        //     // look for collision between h and a message of length 1 + 2^i
+        //     random_message(m2 + ((i-1)*BLEN), BLEN);
+        //     iterated_tcz48_dm(m2, i*BLEN, h2);
+
+        //     if (cmp_hashes(h,h2, 6) == 0) {
+                // print(m2, i*BLEN, " - ");
+                print(m2, 1*BLEN, " - ");
+                print(h2, 6, "\n");
+        //         break;
+        //     }
+        // }
+    // }
+
+    result = log2(SAMPLES);
+    return result;
 }
