@@ -20,7 +20,8 @@
 #include "mc48.h"
 #include "xoshiro256starstar.h"
 
-#define DEBUG_MESSAGE                                     // Uncomment to print the messages in uint8_t format in multicollision
+// #define DEBUG
+// #define DEBUG_MESSAGE                                     // Uncomment to print the messages in uint8_t format in multicollision
 
 // #define VERBOSE                                           // Uncomment to print the collision
 #define BLEN 16                                           // Block Length in Bytes (16 bytes = 128 bits)
@@ -74,8 +75,9 @@ int add_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, long int idx);
 /**
  * Given a hash_table look if h is found in hash_table[key]
  * If it is found, return 1
+ * @param size is the length in bytes of the message m
  */
-int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key);
+int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key, int size);
 
 /**
  * Add a hash to the list in case of index collision
