@@ -194,20 +194,20 @@ uint8_t* get_message(HASH_TABLE* hash_table, long int key, uint8_t* h) {
 /********************************************************************************/
 /********************************************************************************/
 /********************************************************************************/
-
-
 void iterated_tcz48_dm(const uint8_t* m, const size_t len, uint8_t h[6]) {
     uint64_t isMultiple = len % BLEN == 0;
 
     if (!isMultiple) return;
 
+    #ifdef DEBUG
     // simple IV
-    h[0] = IVB0;
-    h[1] = IVB1;
-    h[2] = IVB2;
-    h[3] = IVB3;
-    h[4] = IVB4;
-    h[5] = IVB5;
+    // h[0] = IVB0;
+    // h[1] = IVB1;
+    // h[2] = IVB2;
+    // h[3] = IVB3;
+    // h[4] = IVB4;
+    // h[5] = IVB5;
+    #endif
 
     for (uint64_t b = 0; b < len; b += BLEN) {
         tcz48_dm(m + b, h);
@@ -222,12 +222,14 @@ void print(const uint8_t* x, const size_t len, const char* s) {
     printf("%s", s);
 }
 
-void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
+double collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
     // Hash table used to store all hashes generated and its messages
     HASH_TABLE* hash_table = create_hash_table(HT_SIZE);
     uint8_t null_hash[6] = {0};
+    uint8_t init_hash[6]; copy_hash(init_hash, h, 6);
 
     int count = 0;
+
 
     while (1) {
         count++;
@@ -235,6 +237,7 @@ void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
         uint8_t h1[6], h2[6];
 
         // Generate a random message and compute its hash
+        copy_hash(h2, init_hash, 6);
         random_message(m2, BLEN);
         iterated_tcz48_dm(m2, BLEN, h2);
 
@@ -268,6 +271,8 @@ void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
 
     // Free hash_table memory
     free_hash_table(hash_table, HT_SIZE);
+
+    return log2(SAMPLES);
 }
 
 double multicollision(int t) {
@@ -276,6 +281,13 @@ double multicollision(int t) {
 
     if (SAMPLES != 0) SAMPLES = 0;
 
+    h[0] = IVB0;
+    h[1] = IVB1;
+    h[2] = IVB2;
+    h[3] = IVB3;
+    h[4] = IVB4;
+    h[5] = IVB5;
+
     for (int i = 0; i < t; i++) {
         collision(h, m1, m2);
 
@@ -283,6 +295,10 @@ double multicollision(int t) {
         copy_msg(pairs[i], m1, BLEN);
         copy_msg(pairs[i+t], m2, BLEN);
         copy_hash(hashes[i], h, 6);
+
+        print(m1, BLEN, " ");
+        print(m2, BLEN, " ");
+        print(h, 6, "\n");
     }
 
     // Print each of the t pair of messages with the same hash
@@ -303,7 +319,7 @@ double multicollision(int t) {
             char message_string3[2*BLEN]; get_string_hex(pairs[j], message_string3, BLEN);
             char message_string4[2*BLEN]; get_string_hex(pairs[j+t], message_string4, BLEN);
 
-            printf("H(%s || %s) == H(%s || %s) => ", message_string1, message_string2, message_string3, message_string4);
+            printf("H(%s || %s) == H(%s || %s) => ", message_string1, message_string3, message_string2, message_string4);
             print(h, 6, "\n");
         }
     }
@@ -319,46 +335,50 @@ double multicollision(int t) {
         }
     #endif
 
-    return SAMPLES;
+    return log2(SAMPLES);
 }
 
 double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const size_t len) {
-    if (len % BLEN != 0) {
+    if (len*BLEN % BLEN != 0) {
         printf("Error: len must be a multiple of BLEN\n");
         return 0;
     }
     
     // Hash table used to store all hashes generated and its messages
     HASH_TABLE* hash_table = create_hash_table(HT_SIZE);
-    uint8_t null_hash[6] = {0};
+    uint8_t null_hash[6] = {0}, h1[6], h2[6]; copy_hash(h1, h, 6); copy_hash(h2, h, 6);
+
+    // generate a random message and compute its hash
+    // Add the hash to the hash table
+    random_message(m1, BLEN);
+    iterated_tcz48_dm(m1, BLEN, h1);
+    add_hash(hash_table, h1, m1, get_hash_key(h1));
+
+    // Generate a random message and compute its hash
+    random_message(m2, (len-1)*BLEN);
 
     int count = 0;
 
     while (1) {
         count++;
         SAMPLES++;
-        uint8_t h1[6], h2[6];
+        copy_hash(h1, h, 6); copy_hash(h2, h, 6);
 
         // Generate a random message and compute its hash
         random_message(m1, BLEN);
         iterated_tcz48_dm(m1, BLEN, h1);
-        random_message(m2, len);
-        iterated_tcz48_dm(m2, len, h2);
+
+        random_message(m2 + ((len-1)*BLEN), BLEN);
+        iterated_tcz48_dm(m2, len*BLEN, h2);
 
         // Check if the hash is already in the hash table
         uint64_t hidx1 = get_hash_key(h1);
         uint64_t hidx2 = get_hash_key(h2);
 
-        #ifdef DEBUG
-            if ((count - 1) % 1000000 == 0) {
-                printf("Count: %d\n", (count - 1) / 1000000);
-            }
-        #endif
-
         add_hash(hash_table, h1, m1, hidx1);
 
         if (hash_table[hidx2].list != NULL) {
-            long int idx = lookup_hash(hash_table, h2, m2, hidx2, len);
+            long int idx = lookup_hash(hash_table, h2, m2, hidx2, len*BLEN);
 
             if (idx) {
                 // Collision found, copy hash to h and return
@@ -375,13 +395,14 @@ double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const siz
         printf("m1: ");
         print_uint8(m1, BLEN, " || ");
         printf("m2: ");
-        print_uint8(m2, len, "\n");
+        print_uint8(m2, len*BLEN, "\n");
     #endif
 
     // Free hash_table memory
     free_hash_table(hash_table, HT_SIZE);
+    return log2(SAMPLES);
 }
 
 double expandable_message(int t) {
-    // TODO: Implement this function
+    // TODO: implement
 }
