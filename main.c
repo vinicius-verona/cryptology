@@ -1,6 +1,16 @@
+/*************************************************************
+    AUTHOR  : Vinicius Gabriel Angelozzi Verona de Resende
+    MAIL    : verona.projects@tutanota.com        / 
+              angelozv@etu.univ-grenoble-alpes.fr / 
+              vinicius.verona@aluno.ufop.edu.br
+    YEAR    : 2023
+    COURSE  : Introduction to Cryptology
+    PROFESSOR: Bruno Grenet
+*************************************************************/
+
 #include <stdio.h>
 #include "impl.h"
-// #define STATIC_TEST
+// #define STATIC_TEST // Uncomment to run the static tests
 
 void static_test_t2();
 void static_test_t4();
@@ -20,6 +30,7 @@ int main(int argc, char** argv) {
     static_test_t4();
     static_test_unbalanced();
 #endif
+
 #ifndef STATIC_TEST
 
     char msg1[33];
@@ -29,42 +40,58 @@ int main(int argc, char** argv) {
     uint8_t h[6];
     uint8_t m1[16];
     uint8_t m2[16];
-    uint8_t m3[32];
+    uint8_t m3[16*4];
 
     printf("************* COLLISION *************\n\n");
-    // double r_collision = collision(h, m1, m2);
-    // printf("[ Collision ] ");
-    // print(m1, BLEN, " ");
-    // print(m2, BLEN, " ");
-    // printf("%lf\n", r_collision);
+    double r_collision = collision(h, m1, m2);
+    printf("[ Collision ] ");
+    print(m1, BLEN, " ");
+    print(m2, BLEN, " ");
+    printf("%lf\n", r_collision);
 
     printf("\n************* MULTICOLLISION *************\n\n");
-    // int samples_t1 = multicollision(1);
-    // printf("[ Multicollision ] Samples for t = 1: %d\n", samples_t1);
+    double samples_t1 = multicollision(1);
+    printf("[ Multicollision ] Samples for t = 1: %lf\n\n", samples_t1);
     
-    int samples_t2 = multicollision(2);
-    printf("[ Multicollision ] Samples for t = 2: %d\n", samples_t2);
+    double samples_t2 = multicollision(2);
+    printf("[ Multicollision ] Samples for t = 2: %lf\n\n", samples_t2);
     
-    // int samples_t3 = multicollision(3);
-    // printf("[ Multicollision ] Samples for t = 3: %d\n", samples_t3);
+    double samples_t3 = multicollision(3);
+    printf("[ Multicollision ] Samples for t = 3: %lf\n\n", samples_t3);
 
-    // int samples_t4 = multicollision(4);
-    // printf("[ Multicollision ] Samples for t = 4: %d\n", samples_t4);
+    double samples_t4 = multicollision(4);
+    printf("[ Multicollision ] Samples for t = 4: %lf\n", samples_t4);
 
     printf("\n************* Expandable message *************\n\n");
     reset_h(h, init_h);
-    // double r_unbalanced_collision  = unbalanced_collision(h, m1, m3, 2);
-    // printf("[ Unbalanced Collision ] Results for l = 2: %lf\n\n", r_unbalanced_collision);
+    int size = 4;
+    double r_unbalanced_collision  = unbalanced_collision(h, m1, m3, size);
+    printf("[ Unbalanced Collision ] ");
+    print(m1, BLEN, " ");
+    print(m3, size * BLEN, " ");
+    printf("%lf\n", r_collision);
+    printf("[ Unbalanced Collision ] Results for l = 4: %lf\n\n", r_unbalanced_collision);
 
-    // double r_expandable_message_t1 = expandable_message(1);
-    // double r_expandable_message_t2 = expandable_message(2);
-    // double r_expandable_message_t3 = 0;//expandable_message(3);
-    // double r_expandable_message_t4 = 0;//expandable_message(4);
-    // printf("[ Expandable Message ] Results for t = 1, t = 2. t = 3 and t = 4: %lf, %lf, %lf, %lf\n", 
-            // r_expandable_message_t1, r_expandable_message_t2, r_expandable_message_t3, r_expandable_message_t4);
+    double r_expandable_message_t1 = expandable_message(1);
+    printf("[ Expandable Message ] Results for t = 1: %lf\n\n", r_expandable_message_t1);
+    double r_expandable_message_t2 = expandable_message(2);
+    printf("[ Expandable Message ] Results for t = 2: %lf\n\n", r_expandable_message_t2);
+    double r_expandable_message_t3 = expandable_message(3);
+    printf("[ Expandable Message ] Results for t = 3: %lf\n\n", r_expandable_message_t3);
+    double r_expandable_message_t4 = expandable_message(4);
+    printf("[ Expandable Message ] Results for t = 4: %lf\n\n", r_expandable_message_t4);
 
 #endif
 }
+
+
+/*******************************************************************************/
+/*******************************************************************************/
+/*******************************************************************************/
+/****************************** SOME STATIC TESTS ******************************/
+/*******************************************************************************/
+/*******************************************************************************/
+/*******************************************************************************/
 
 void concatenate_arrays(uint8_t *arr1, uint8_t *arr2, uint8_t *result, size_t arr1_size, size_t arr2_size) {
     memcpy(result, arr1, arr1_size);

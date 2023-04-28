@@ -87,16 +87,6 @@ void free_list(HASH_TABLE_LIST* list) {
     free(list);
 }
 
-/**
- * Given a uint8_t array, return a string representation of the array
-*/
-void get_string_hex(uint8_t* h, char* hash_string, int size) {
-    // There is an error here
-    for (int i = 0; i < size; i++) {
-        sprintf(hash_string + i, "%02X", h[i]);
-    }
-}
-
 int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key, int size) {
     HASH_TABLE_CELL* aux;
 
@@ -111,14 +101,6 @@ int lookup_hash(HASH_TABLE* hash_table, uint8_t* h, uint8_t* m, int key, int siz
 
     // If the element was found, return 1
     if (aux != NULL) {
-        #ifdef VERBOSE
-
-            char message_string1[2*BLEN]; get_string_hex(aux->item->message, message_string1, BLEN);
-            char message_string2[2*size]; get_string_hex(m, message_string2, size);
-
-            printf("-: %s %s %lf\n", message_string1, message_string2, log2(SAMPLES));
-
-        #endif
         return 1;
     }
 
@@ -199,16 +181,6 @@ void iterated_tcz48_dm(const uint8_t* m, const size_t len, uint8_t h[6]) {
 
     if (!isMultiple) return;
 
-    #ifdef DEBUG
-    // simple IV
-    // h[0] = IVB0;
-    // h[1] = IVB1;
-    // h[2] = IVB2;
-    // h[3] = IVB3;
-    // h[4] = IVB4;
-    // h[5] = IVB5;
-    #endif
-
     for (uint64_t b = 0; b < len; b += BLEN) {
         tcz48_dm(m + b, h);
     }
@@ -228,11 +200,7 @@ double collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
     uint8_t null_hash[6] = {0};
     uint8_t init_hash[6]; copy_hash(init_hash, h, 6);
 
-    int count = 0;
-
-
     while (1) {
-        count++;
         SAMPLES++;
         uint8_t h1[6], h2[6];
 
@@ -243,12 +211,6 @@ double collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
 
         // Check if the hash is already in the hash table
         uint64_t hidx = get_hash_key(h2);
-
-        #ifdef DEBUG
-            if ((count - 1) % 1000000 == 0) {
-                printf("Count: %d\n", (count - 1) / 1000000);
-            }
-        #endif
 
         if (hash_table[hidx].list != NULL) {
             long int idx = lookup_hash(hash_table, h2, m2, hidx, BLEN);
@@ -271,7 +233,6 @@ double collision(uint8_t h[6], uint8_t* m1, uint8_t* m2) {
 
     // Free hash_table memory
     free_hash_table(hash_table, HT_SIZE);
-
     return log2(SAMPLES);
 }
 
@@ -295,37 +256,18 @@ double multicollision(int t) {
         copy_msg(pairs[i], m1, BLEN);
         copy_msg(pairs[i+t], m2, BLEN);
         copy_hash(hashes[i], h, 6);
-
-        print(m1, BLEN, " ");
-        print(m2, BLEN, " ");
-        print(h, 6, "\n");
     }
 
-    // Print each of the t pair of messages with the same hash
-    #ifdef VERBOSE
-        for (int i = 0; i < t; i++) {
-            char message_string1[2*BLEN]; get_string_hex(pairs[i], message_string1, BLEN);
-            char message_string2[2*BLEN]; get_string_hex(pairs[i+t], message_string2, BLEN);
-
-            printf("%s %s\n", message_string1, message_string2);
-        }
-    #endif
-
-    // Print all possible combination of pairs of messages with the same hash, in a way that each pair is only printed once
+    // Print all blocks of messages and the commom hash
     for (int i = 0; i < t; i++) {
-        for (int j = i+1; j < t; j++) {
-            char message_string1[2*BLEN]; get_string_hex(pairs[i], message_string1, BLEN);
-            char message_string2[2*BLEN]; get_string_hex(pairs[i+t], message_string2, BLEN);
-            char message_string3[2*BLEN]; get_string_hex(pairs[j], message_string3, BLEN);
-            char message_string4[2*BLEN]; get_string_hex(pairs[j+t], message_string4, BLEN);
-
-            printf("H(%s || %s) == H(%s || %s) => ", message_string1, message_string3, message_string2, message_string4);
-            print(h, 6, "\n");
-        }
+        printf("Block %d: ", i+1);
+        print(pairs[i], BLEN, " ");
+        print(pairs[i+t], BLEN, " ");
+        print(hashes[i], 6, "\n");
     }
 
 
-    #ifdef DEBUG_MESSAGE
+    #ifdef PRINT_UINT8_MESSAGES
         // Print each of the t pair of messages in uint8_t format
         for (int i = 0; i < t; i++) {
             printf("m1: ");
@@ -390,7 +332,7 @@ double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const siz
         }
     }
 
-    #ifdef DEBUG_MESSAGE
+    #ifdef PRINT_UINT8_MESSAGES
         // Print the pair of messages in uint8_t format
         printf("m1: ");
         print_uint8(m1, BLEN, " || ");
@@ -403,55 +345,27 @@ double unbalanced_collision(uint8_t h[6], uint8_t m1[16], uint8_t* m2, const siz
     return log2(SAMPLES);
 }
 
-
-// Geting stuc for some reason
 double expandable_message(int t) {
-    uint8_t h[6], h1[6], h2[6], m[BLEN], *m2;
+    uint8_t h[6], m[BLEN], *m2;
     double result;
 
-    m2   = (uint8_t*) malloc((pow(2,t)+1) * BLEN * sizeof(uint8_t));
+    m2 = (uint8_t*) malloc((pow(2,t)+1) * BLEN * sizeof(uint8_t));
     SAMPLES = 0;
 
     h[0]  = IVB0; h[1]  = IVB1; h[2]  = IVB2; h[3]  = IVB3; h[4]  = IVB4; h[5]  = IVB5;
-    h1[0] = IVB0; h1[1] = IVB1; h1[2] = IVB2; h1[3] = IVB3; h1[4] = IVB4; h1[5] = IVB5;
-    h2[0] = IVB0; h2[1] = IVB1; h2[2] = IVB2; h2[3] = IVB3; h2[4] = IVB4; h2[5] = IVB5;
 
-    // look for 1-block message collision
-    unbalanced_collision(h, m, m2, 1);
-    print(m, BLEN, " - ");
-    print(h, 6, "\n");
-    print(m2, BLEN, " - ");
-    print(h, 6, "\n");
+    for (int i = 0; i < t+1; i++) {
 
+        unbalanced_collision(h, m, m2, pow(2,i)+1);
+        print(m, BLEN, " ");
+        print(m2, (pow(2,i)+1)*BLEN, " - ");
+        print(h, 6, "\n");
+
+    }
+
+    // Free hash_table memory
+    free(m2);
     
-    ucollision(h,m2,2);
-
-    // for (int i = 2; i <= pow(2,t)+1; i++) {
-        // ucollision(h,m2,i);
-
-        // int counter = 0;
-        // while(1) {
-        //     SAMPLES++;
-        //     counter++;
-        //     copy_hash(h2, h1, 6);
-
-        //     if(counter % 1000000 == 0) {
-        //         printf("counter: %d\n", counter / 1000000);
-        //     }
-
-        //     // look for collision between h and a message of length 1 + 2^i
-        //     random_message(m2 + ((i-1)*BLEN), BLEN);
-        //     iterated_tcz48_dm(m2, i*BLEN, h2);
-
-        //     if (cmp_hashes(h,h2, 6) == 0) {
-                // print(m2, i*BLEN, " - ");
-                print(m2, 1*BLEN, " - ");
-                print(h2, 6, "\n");
-        //         break;
-        //     }
-        // }
-    // }
-
     result = log2(SAMPLES);
     return result;
 }

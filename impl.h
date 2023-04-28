@@ -20,10 +20,8 @@
 #include "mc48.h"
 #include "xoshiro256starstar.h"
 
-// #define DEBUG
-// #define DEBUG_MESSAGE                                     // Uncomment to print the messages in uint8_t format in multicollision
+// #define PRINT_UINT8_MESSAGES                           // Uncomment to print the messages in uint8_t
 
-// #define VERBOSE                                           // Uncomment to print the collision
 #define BLEN 16                                           // Block Length in Bytes (16 bytes = 128 bits)
 #define BLEN_BITS 128                                     // Block Length in Bits
 #define HASH_SIZE 48                                      // Hash size in bits
@@ -119,7 +117,7 @@ void print(const uint8_t* x, const size_t len, const char* s);
  * 4 - If h2 is in the hash table, then we found a collision
  * 5 - If h2 is not in the hash table, then add it with the message to the hash table and go to step 2
  */
-void collision(uint8_t h[6], uint8_t* m1, uint8_t* m2);
+double collision(uint8_t h[6], uint8_t* m1, uint8_t* m2);
 
 /**
  * Find a multicollision 2^t executing collision t times 
